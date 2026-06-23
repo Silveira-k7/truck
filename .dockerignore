@@ -1,0 +1,16 @@
+node_modules
+dist
+data
+.npm-cache
+*.log
+*.sqlite
+*.sqlite-*
+.git
+.agents
+.bolt
+.env
+maintenance-mobile-check.png
+vite-dev.err.log
+vite-dev.log
+dev-server.err.log
+dev-server.out.log

@@ -1,0 +1,16 @@
+services:
+  frota:
+    build: .
+    container_name: frota-control
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      SQLITE_DB_PATH: /app/data/frota.sqlite
+    volumes:
+      - frota_data:/app/data
+
+volumes:
+  frota_data:
