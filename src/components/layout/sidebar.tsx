@@ -60,7 +60,7 @@ export default function Sidebar() {
             <Menu className="w-6 h-6 text-gray-700" />
           </button>
           <div className="flex items-center gap-2">
-            <img src="/tiklog-icon.svg" alt="Tik Log Transportes" className="h-8 w-8" />
+            <img src="/tiklog%20icon.png" alt="Tik Log Transportes" className="h-8 w-8" />
             <span className="text-lg font-bold text-primary-700">Tik Log</span>
           </div>
           <div className="w-10" />
@@ -87,8 +87,7 @@ export default function Sidebar() {
           {/* Logo */}
           <div className="flex items-center justify-between px-4 py-5 border-b border-gray-200">
             <div className="flex items-center gap-2">
-              <img src="/tiklog-icon.svg" alt="Tik Log Transportes" className="w-9 h-9" />
-              <span className="text-lg font-bold text-gray-900">Tik Log</span>
+              <img src="/logo%20tiklog.png" alt="Tik Log Transportes" className="h-10 w-auto max-w-[150px]" />
             </div>
             <button
               onClick={() => setIsOpen(false)}

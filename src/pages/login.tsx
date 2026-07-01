@@ -55,7 +55,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <img
-            src="/tiklog-logo.svg"
+            src="/logo%20tiklog.png"
             alt="Tik Log Transportes"
             className="mx-auto w-full max-w-[320px] drop-shadow-[0_8px_18px_rgba(0,0,0,0.15)]"
           />
