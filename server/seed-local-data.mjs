@@ -1,28 +1,29 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { Pool } from 'pg';
 
-const dbPath = resolve(process.cwd(), 'data/frota.sqlite');
-mkdirSync(dirname(dbPath), { recursive: true });
+const DATABASE_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL || '';
+const pool = createPool();
 
-const db = new DatabaseSync(dbPath);
-db.exec('PRAGMA foreign_keys = ON');
+main()
+  .then(() => {
+    console.log('Dados ficticios adicionados.');
+    console.log('Login demo: admin@local.test / 123456');
+  })
+  .finally(async () => {
+    await pool.end();
+  });
 
-const now = () => new Date().toISOString();
+async function main() {
+  await resetTables();
 
-main();
-db.close();
-
-function main() {
-  const admin = upsertLocalUser({
+  const admin = await upsertLocalUser({
     email: 'admin@local.test',
     password: '123456',
     name: 'Administrador Local',
     role: 'admin',
   });
 
-  const scania = upsertTruck({
+  const scania = await insert('trucks', {
     plate: 'ABC1D23',
     model: 'Scania R450',
     year: 2021,
@@ -35,7 +36,7 @@ function main() {
     notes: 'Caminhao ficticio para demonstracao',
   });
 
-  const volvo = upsertTruck({
+  const volvo = await insert('trucks', {
     plate: 'DEF4G56',
     model: 'Volvo FH 540',
     year: 2020,
@@ -48,7 +49,7 @@ function main() {
     notes: 'Caminhao ficticio para demonstracao',
   });
 
-  const mercedes = upsertTruck({
+  const mercedes = await insert('trucks', {
     plate: 'GHI7J89',
     model: 'Mercedes-Benz Actros',
     year: 2019,
@@ -61,31 +62,31 @@ function main() {
     notes: 'Caminhao ficticio para demonstracao',
   });
 
-  const carlos = upsertDriver({
+  const carlos = await insert('drivers', {
     name: 'Carlos Andrade',
     phone: '(11) 98888-1010',
     cpf: '111.222.333-44',
     truck_id: scania.id,
-    is_active: 1,
+    is_active: true,
   });
 
-  const mariana = upsertDriver({
+  const mariana = await insert('drivers', {
     name: 'Mariana Costa',
     phone: '(21) 97777-2020',
     cpf: '222.333.444-55',
     truck_id: volvo.id,
-    is_active: 1,
+    is_active: true,
   });
 
-  const roberto = upsertDriver({
+  const roberto = await insert('drivers', {
     name: 'Roberto Lima',
     phone: '(31) 96666-3030',
     cpf: '333.444.555-66',
     truck_id: mercedes.id,
-    is_active: 1,
+    is_active: true,
   });
 
-  const tripApproved = upsertTrip({
+  const tripApproved = await insert('trips', {
     truck_id: scania.id,
     driver_id: carlos.id,
     origin_city: 'Sao Paulo',
@@ -103,7 +104,7 @@ function main() {
     notes: '[seed] Viagem aprovada de exemplo',
   });
 
-  const tripProgress = upsertTrip({
+  const tripProgress = await insert('trips', {
     truck_id: volvo.id,
     driver_id: mariana.id,
     origin_city: 'Rio de Janeiro',
@@ -119,7 +120,7 @@ function main() {
     notes: '[seed] Viagem em andamento de exemplo',
   });
 
-  const tripCompleted = upsertTrip({
+  const tripCompleted = await insert('trips', {
     truck_id: mercedes.id,
     driver_id: roberto.id,
     origin_city: 'Campinas',
@@ -137,13 +138,57 @@ function main() {
     notes: '[seed] Viagem aguardando aprovacao',
   });
 
-  upsertExpense(tripApproved.id, 'diesel', 1180.8, 'Abastecimento - Posto Rota Sul', '2026-06-03', 'Registro ficticio');
-  upsertExpense(tripApproved.id, 'toll', 420, 'Pedagios BR-116', '2026-06-03', 'Registro ficticio');
-  upsertExpense(tripApproved.id, 'food', 95.5, 'Refeicao motorista', '2026-06-04', 'Registro ficticio');
-  upsertExpense(tripProgress.id, 'diesel', 820.2, 'Abastecimento - Posto Carolina Machado', '2026-06-20', 'Registro ficticio');
-  upsertExpense(tripCompleted.id, 'toll', 138.9, 'Pedagio Anchieta', '2026-06-15', 'Registro ficticio');
+  await insert('expenses', {
+    trip_id: tripApproved.id,
+    category: 'diesel',
+    amount: 1180.8,
+    description: 'Abastecimento - Posto Rota Sul',
+    expense_date: '2026-06-03',
+    location_city: 'Registro',
+    location_state: 'SP',
+  });
 
-  upsertFuelRecord({
+  await insert('expenses', {
+    trip_id: tripApproved.id,
+    category: 'toll',
+    amount: 420,
+    description: 'Pedagios BR-116',
+    expense_date: '2026-06-03',
+    location_city: 'Registro',
+    location_state: 'SP',
+  });
+
+  await insert('expenses', {
+    trip_id: tripApproved.id,
+    category: 'food',
+    amount: 95.5,
+    description: 'Refeicao motorista',
+    expense_date: '2026-06-04',
+    location_city: 'Registro',
+    location_state: 'SP',
+  });
+
+  await insert('expenses', {
+    trip_id: tripProgress.id,
+    category: 'diesel',
+    amount: 820.2,
+    description: 'Abastecimento - Posto Carolina Machado',
+    expense_date: '2026-06-20',
+    location_city: 'Rio de Janeiro',
+    location_state: 'RJ',
+  });
+
+  await insert('expenses', {
+    trip_id: tripCompleted.id,
+    category: 'toll',
+    amount: 138.9,
+    description: 'Pedagio Anchieta',
+    expense_date: '2026-06-15',
+    location_city: 'Santos',
+    location_state: 'SP',
+  });
+
+  await insert('fuel_records', {
     trip_id: tripApproved.id,
     truck_id: scania.id,
     fuel_date: '2026-06-03',
@@ -156,7 +201,7 @@ function main() {
     km_at_refuel: 145020,
   });
 
-  upsertFuelRecord({
+  await insert('fuel_records', {
     trip_id: tripProgress.id,
     truck_id: volvo.id,
     fuel_date: '2026-06-20',
@@ -169,7 +214,7 @@ function main() {
     km_at_refuel: 98220,
   });
 
-  upsertMaintenance({
+  await insert('maintenance_records', {
     truck_id: mercedes.id,
     maintenance_type: 'brake_service',
     maintenance_date: '2026-06-18',
@@ -180,7 +225,7 @@ function main() {
     next_maintenance_km: 215000,
   });
 
-  upsertMaintenance({
+  await insert('maintenance_records', {
     truck_id: volvo.id,
     maintenance_type: 'oil_change',
     maintenance_date: '2026-06-10',
@@ -191,120 +236,108 @@ function main() {
     next_maintenance_km: 100000,
   });
 
-  upsertAlert({
+  await insert('alerts', {
     alert_type: 'maintenance',
     title: 'Manutencao proxima',
     message: `${volvo.plate} esta perto da proxima manutencao.`,
     related_type: 'truck',
     related_id: volvo.id,
     priority: 'medium',
+    is_read: false,
+    is_resolved: false,
     created_for: admin.profile.id,
   });
 
-  upsertAlert({
+  await insert('alerts', {
     alert_type: 'trip',
     title: 'Viagem aguardando aprovacao',
     message: 'Ha uma viagem finalizada aguardando aprovacao.',
     related_type: 'trip',
     related_id: tripCompleted.id,
     priority: 'high',
+    is_read: false,
+    is_resolved: false,
     created_for: admin.profile.id,
   });
-
-  console.log('Dados ficticios adicionados.');
-  console.log('Login demo: admin@local.test / 123456');
 }
 
-function upsertLocalUser({ email, password, name, role }) {
-  const existingUser = get('SELECT id, profile_id FROM local_users WHERE email = ?', [email]);
+async function upsertLocalUser({ email, password, name, role }) {
+  const existingUser = await get('SELECT id, profile_id FROM local_users WHERE email = $1', [email]);
   if (existingUser) {
     return {
       id: existingUser.id,
-      profile: get('SELECT * FROM profiles WHERE id = ?', [existingUser.profile_id]),
+      profile: await get('SELECT * FROM profiles WHERE id = $1', [existingUser.profile_id]),
     };
   }
 
-  const profile = insert('profiles', {
+  const profile = await insert('profiles', {
+    id: randomUUID(),
     name,
     role,
-    is_active: 1,
-    created_at: now(),
-    updated_at: now(),
+    is_active: true,
   });
 
   const password_salt = randomBytes(16).toString('hex');
-  const password_hash = createHash('sha256').update(`${password_salt}:${password}`).digest('hex');
+  const password_hash = hashPassword(password, password_salt);
   const userId = randomUUID();
 
-  db.prepare(`
-    INSERT INTO local_users (id, email, password_hash, password_salt, profile_id, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(userId, email, password_hash, password_salt, profile.id, now());
+  await insert('local_users', {
+    id: userId,
+    email,
+    password_hash,
+    password_salt,
+    profile_id: profile.id,
+  });
 
   return { id: userId, profile };
 }
 
-function upsertTruck(data) {
-  return get('SELECT * FROM trucks WHERE plate = ?', [data.plate]) || insert('trucks', withTimestamps(data));
+async function insert(table, data) {
+  const columns = Object.keys(data);
+  const placeholders = columns.map((_, index) => `$${index + 1}`).join(', ');
+  await run(`INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`, columns.map((column) => data[column]));
+  return get(`SELECT * FROM ${table} WHERE id = $1`, [data.id]);
 }
 
-function upsertDriver(data) {
-  return get('SELECT * FROM drivers WHERE cpf = ?', [data.cpf]) || insert('drivers', withTimestamps(data));
+async function get(queryText, params = []) {
+  const { rows } = await run(queryText, params);
+  return rows[0] || null;
 }
 
-function upsertTrip(data) {
-  return get('SELECT * FROM trips WHERE notes = ?', [data.notes]) || insert('trips', withTimestamps(data));
+async function run(queryText, params = []) {
+  return pool.query(queryText, params);
 }
 
-function upsertExpense(tripId, category, amount, description, expenseDate, city) {
-  return get('SELECT * FROM expenses WHERE trip_id = ? AND description = ? AND amount = ?', [tripId, description, amount]) || insert('expenses', {
-    trip_id: tripId,
-    category,
-    amount,
-    description,
-    expense_date: expenseDate,
-    location_city: city,
-    created_at: now(),
+async function resetTables() {
+  await pool.query(`
+    TRUNCATE TABLE
+      alerts,
+      maintenance_records,
+      fuel_records,
+      expenses,
+      route_estimates,
+      sessions,
+      trips,
+      drivers,
+      local_users,
+      trucks,
+      profiles
+    RESTART IDENTITY CASCADE
+  `);
+}
+
+function hashPassword(password, salt) {
+  return createHash('sha256').update(`${salt}:${password}`).digest('hex');
+}
+
+function createPool() {
+  if (!DATABASE_URL) {
+    throw new Error('DATABASE_URL nao configurada. Defina a string de conexao do Neon.');
+  }
+
+  const isLocalhost = /localhost|127\.0\.0\.1|::1/i.test(DATABASE_URL);
+  return new Pool({
+    connectionString: DATABASE_URL,
+    ssl: isLocalhost ? false : { rejectUnauthorized: false },
   });
-}
-
-function upsertFuelRecord(data) {
-  return get('SELECT * FROM fuel_records WHERE truck_id = ? AND fuel_date = ? AND station_name = ?', [data.truck_id, data.fuel_date, data.station_name]) || insert('fuel_records', {
-    ...data,
-    created_at: now(),
-  });
-}
-
-function upsertMaintenance(data) {
-  return get('SELECT * FROM maintenance_records WHERE truck_id = ? AND maintenance_date = ? AND workshop_name = ?', [data.truck_id, data.maintenance_date, data.workshop_name]) || insert('maintenance_records', {
-    ...data,
-    created_at: now(),
-  });
-}
-
-function upsertAlert(data) {
-  return get('SELECT * FROM alerts WHERE title = ? AND related_id = ?', [data.title, data.related_id]) || insert('alerts', {
-    ...data,
-    is_read: 0,
-    is_resolved: 0,
-    created_at: now(),
-  });
-}
-
-function withTimestamps(data) {
-  const created_at = now();
-  return { ...data, created_at, updated_at: created_at };
-}
-
-function insert(table, data) {
-  const id = randomUUID();
-  const row = { id, ...data };
-  const keys = Object.keys(row);
-  const placeholders = keys.map(() => '?').join(', ');
-  db.prepare(`INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`).run(...keys.map((key) => row[key]));
-  return get(`SELECT * FROM ${table} WHERE id = ?`, [id]);
-}
-
-function get(sql, params) {
-  return db.prepare(sql).get(...params);
 }

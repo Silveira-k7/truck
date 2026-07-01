@@ -21,7 +21,6 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-const LOCAL_USER_KEY = 'frota_local_user_id';
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -32,24 +31,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const getInitialSession = async () => {
-      const userId = localStorage.getItem(LOCAL_USER_KEY);
-      if (!userId) {
-        setLoading(false);
-        return;
-      }
-
       try {
-        const result = await apiAuth<{ user: LocalUser | null; profile: Profile | null }>(`/session?userId=${encodeURIComponent(userId)}`);
+        const result = await apiAuth<{ user: LocalUser | null; profile: Profile | null }>('/session');
         setUser(result.user);
         setProfile(result.profile);
         setSession(result.user ? { user: result.user } : null);
-
-        if (!result.user) {
-          localStorage.removeItem(LOCAL_USER_KEY);
-        }
       } catch (error) {
         console.error('Error getting local session:', error);
-        localStorage.removeItem(LOCAL_USER_KEY);
       } finally {
         setLoading(false);
       }
@@ -60,10 +48,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, name: string, role: 'admin' | 'driver') => {
     try {
-      await apiAuth('/signup', {
+      const result = await apiAuth<{ user: LocalUser; profile: Profile }>('/signup', {
         method: 'POST',
         body: JSON.stringify({ email, password, name, role }),
       });
+
+      setUser(result.user);
+      setProfile(result.profile);
+      setSession({ user: result.user });
 
       return {};
     } catch (err) {
@@ -79,7 +71,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
 
-      localStorage.setItem(LOCAL_USER_KEY, result.user.id);
       setUser(result.user);
       setProfile(result.profile);
       setSession({ user: result.user });
@@ -91,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    localStorage.removeItem(LOCAL_USER_KEY);
+    await apiAuth('/signout', { method: 'POST' });
     setUser(null);
     setProfile(null);
     setSession(null);
@@ -121,6 +112,7 @@ export function useAuth() {
 async function apiAuth<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/auth${path}`, {
     ...init,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(init?.headers || {}),

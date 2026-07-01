@@ -8,9 +8,4 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      SQLITE_DB_PATH: /app/data/frota.sqlite
-    volumes:
-      - frota_data:/app/data
-
-volumes:
-  frota_data:
+      DATABASE_URL: ${DATABASE_URL}

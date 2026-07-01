@@ -17,6 +17,7 @@ type DashboardSummary = {
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, {
     ...init,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(init?.headers || {}),
@@ -26,7 +27,7 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(data?.error || 'Erro ao acessar banco local');
+    throw new Error(data?.error || 'Erro ao acessar a API');
   }
 
   return data as T;

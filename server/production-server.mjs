@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve, sep } from 'node:path';
-import { handleApi } from './local-sqlite-api.mjs';
+import { handleApi } from './postgres-api.mjs';
 
 const port = Number(process.env.PORT || 3000);
 const distDir = resolve(process.cwd(), 'dist');
@@ -28,7 +28,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname.startsWith('/api')) {
       const path = url.pathname.replace(/^\/api/, '') || '/';
       const result = await handleApi(req, path, url.searchParams);
-      sendJson(res, result.status, result.body);
+      sendJson(res, result.status, result.body, result.headers);
       return;
     }
 
@@ -71,9 +71,12 @@ function safeResolve(pathname) {
   return fullPath;
 }
 
-function sendJson(res, status, body) {
+function sendJson(res, status, body, headers = {}) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  for (const [key, value] of Object.entries(headers)) {
+    res.setHeader(key, value);
+  }
   res.end(JSON.stringify(body));
 }
 

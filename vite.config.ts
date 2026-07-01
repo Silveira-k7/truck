@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { localSqliteApiPlugin } from './server/local-sqlite-api.mjs';
+import { postgresApiPlugin } from './server/postgres-api.mjs';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [localSqliteApiPlugin(), react()],
+  plugins: [postgresApiPlugin(), react()],
   optimizeDeps: {
     exclude: ['lucide-react'],
   },

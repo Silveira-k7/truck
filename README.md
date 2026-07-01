@@ -6,6 +6,8 @@ Sistema local para controle de frota.
 
 Requer Node.js 24 ou superior.
 
+Antes de iniciar, configure `DATABASE_URL` com a string do Neon.
+
 ```bash
 npm install
 npm run dev
@@ -25,15 +27,17 @@ Login demo criado pelo seed:
 admin@local.test / 123456
 ```
 
-## Banco local
+## Banco de dados
 
-Os dados ficam em SQLite no arquivo:
+O projeto agora usa Postgres da Neon via `DATABASE_URL`.
 
-```text
-data/frota.sqlite
+Exemplo de `.env`:
+
+```bash
+DATABASE_URL=postgresql://usuario:senha@ep-xxxxx.us-east-1.aws.neon.tech/frota?sslmode=require
 ```
 
-Esse arquivo e seus auxiliares (`-wal`, `-shm`) ficam ignorados pelo Git.
+O servidor cria automaticamente as tabelas necessárias na primeira inicialização.
 
 ## Rodar em Docker
 
@@ -49,10 +53,10 @@ O app fica disponivel em:
 http://IP_DA_VM:3000
 ```
 
-Para popular o banco do container com dados ficticios:
+Para popular o banco com dados ficticios:
 
 ```bash
-docker compose exec frota npm run seed
+npm run seed
 ```
 
-O SQLite fica persistido no volume Docker `frota_data`, montado em `/app/data`.
+No Docker, a aplicação também usa `DATABASE_URL` do ambiente.
