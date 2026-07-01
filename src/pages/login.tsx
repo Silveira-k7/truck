@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth-context';
-import { Truck, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import Button from '../components/ui/button';
 import Input from '../components/ui/input';
 
@@ -54,10 +54,11 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-lg mb-4">
-            <Truck className="w-8 h-8 text-primary-600" />
-          </div>
-          <h1 className="text-3xl font-bold text-white">FrotaControl</h1>
+          <img
+            src="/tiklog-logo.svg"
+            alt="Tik Log Transportes"
+            className="mx-auto w-full max-w-[320px] drop-shadow-[0_8px_18px_rgba(0,0,0,0.15)]"
+          />
           <p className="text-primary-100 mt-2">Controle inteligente de frota</p>
         </div>
 
@@ -171,7 +172,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-primary-100 text-sm mt-6">
-          Controle de frota familiar
+          Sistema de controle operacional
         </p>
       </div>
     </div>

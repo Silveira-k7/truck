@@ -59,7 +59,10 @@ export default function Sidebar() {
           >
             <Menu className="w-6 h-6 text-gray-700" />
           </button>
-          <h1 className="text-lg font-bold text-primary-600">FrotaControl</h1>
+          <div className="flex items-center gap-2">
+            <img src="/tiklog-icon.svg" alt="Tik Log Transportes" className="h-8 w-8" />
+            <span className="text-lg font-bold text-primary-700">Tik Log</span>
+          </div>
           <div className="w-10" />
         </div>
       </header>
@@ -84,10 +87,8 @@ export default function Sidebar() {
           {/* Logo */}
           <div className="flex items-center justify-between px-4 py-5 border-b border-gray-200">
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 bg-primary-600 rounded-lg flex items-center justify-center">
-                <Truck className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-lg font-bold text-gray-900">FrotaControl</span>
+              <img src="/tiklog-icon.svg" alt="Tik Log Transportes" className="w-9 h-9" />
+              <span className="text-lg font-bold text-gray-900">Tik Log</span>
             </div>
             <button
               onClick={() => setIsOpen(false)}
