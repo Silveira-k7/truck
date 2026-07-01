@@ -96,6 +96,10 @@ let pool;
 let schemaReadyPromise;
 let ocrWorkerPromise;
 
+function now() {
+  return new Date().toISOString();
+}
+
 export function postgresApiPlugin() {
   return {
     name: 'postgres-api',
