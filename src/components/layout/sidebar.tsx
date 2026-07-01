@@ -86,9 +86,15 @@ export default function Sidebar() {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between px-4 py-5 border-b border-gray-200">
-            <div className="flex items-center gap-2">
-              <img src="/logo%20tiklog.png" alt="Tik Log Transportes" className="h-10 w-auto max-w-[150px]" />
-            </div>
+            <div
+              role="img"
+              aria-label="Tik Log Transportes"
+              className="h-10 w-36 bg-left bg-no-repeat"
+              style={{
+                backgroundImage: "url('/logo%20tiklog.png')",
+                backgroundSize: '150px 150px',
+              }}
+            />
             <button
               onClick={() => setIsOpen(false)}
               className="lg:hidden p-1 rounded-lg hover:bg-gray-100"
