@@ -106,7 +106,7 @@ export async function handleApi(req, path, searchParams) {
   }
 
   if (resource === 'dashboard') {
-    return ok(getDashboardSummary());
+    return ok(getDashboardSummary(searchParams));
   }
 
   if (resource === 'profiles') {
@@ -414,10 +414,8 @@ function hydrateTrip(trip) {
   };
 }
 
-function getDashboardSummary() {
-  const nowDate = new Date();
-  const start = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1).toISOString().slice(0, 10);
-  const end = new Date(nowDate.getFullYear(), nowDate.getMonth() + 1, 0).toISOString().slice(0, 10);
+function getDashboardSummary(searchParams) {
+  const { start, end } = getMonthRange(searchParams);
   const trips = listRows('trips').filter((trip) => trip.status === 'approved' && trip.start_date >= start && trip.start_date <= end);
   const tripIds = new Set(trips.map((trip) => trip.id));
   const expenses = listRows('expenses').filter((expense) => tripIds.has(expense.trip_id));
@@ -451,7 +449,7 @@ function getDashboardSummary() {
 
   const trucks = Object.values(truckStats);
   const drivers = Object.values(driverStats);
-  const pendingApprovals = listRows('trips').filter((trip) => trip.status === 'completed').length;
+  const pendingApprovals = listRows('trips').filter((trip) => trip.status === 'completed' && trip.start_date >= start && trip.start_date <= end).length;
 
   return {
     totalRevenue,
@@ -466,6 +464,26 @@ function getDashboardSummary() {
     topDriver: drivers.sort((a, b) => b.trips - a.trips)[0] || null,
     pendingApprovals,
   };
+}
+
+function getMonthRange(searchParams) {
+  const rawMonth = searchParams?.get('month') || '';
+  const match = rawMonth.match(/^(\d{4})-(\d{2})$/);
+  const selectedDate = match && Number(match[2]) >= 1 && Number(match[2]) <= 12
+    ? new Date(Number(match[1]), Number(match[2]) - 1, 1)
+    : new Date();
+
+  const year = selectedDate.getFullYear();
+  const month = selectedDate.getMonth();
+
+  return {
+    start: formatDateOnly(year, month, 1),
+    end: formatDateOnly(year, month, new Date(year, month + 1, 0).getDate()),
+  };
+}
+
+function formatDateOnly(year, month, day) {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 function hashPassword(password, salt) {

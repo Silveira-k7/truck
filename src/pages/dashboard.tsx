@@ -15,35 +15,46 @@ import {
 } from 'lucide-react';
 import { StatCard } from '../components/ui/card';
 import Button from '../components/ui/button';
+import Input from '../components/ui/input';
 import { StatusBadge } from '../components/ui/badge';
 import { getDashboardSummary, getTrips } from '../lib/api';
 import type { Trip, Truck as TruckType, Driver } from '../lib/types';
 
 // Simple hooks for data fetching
-function useDashboard() {
+function getCurrentMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function useDashboard(month: string) {
   const [data, setData] = useState<Awaited<ReturnType<typeof getDashboardSummary>> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getDashboardSummary()
+    setLoading(true);
+    setError(null);
+
+    getDashboardSummary(month)
       .then(setData)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [month]);
 
   return { data, loading, error };
 }
 
-function useRecentTrips() {
+function useRecentTrips(month: string) {
   const [data, setData] = useState<(Trip & { truck?: TruckType; driver?: Driver })[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
+
     getTrips()
-      .then((trips) => setData(trips.slice(0, 5)))
+      .then((trips) => setData(trips.filter((trip) => trip.start_date?.startsWith(month)).slice(0, 5)))
       .finally(() => setLoading(false));
-  }, []);
+  }, [month]);
 
   return { data, loading };
 }
@@ -62,8 +73,9 @@ function formatNumber(value: number) {
 export default function DashboardPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
-  const { data: summary, loading: summaryLoading } = useDashboard();
-  const { data: recentTrips } = useRecentTrips();
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
+  const { data: summary, loading: summaryLoading, error: summaryError } = useDashboard(selectedMonth);
+  const { data: recentTrips } = useRecentTrips(selectedMonth);
 
   if (profile?.role === 'driver') {
     return <DriverDashboard />;
@@ -90,10 +102,25 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-500">Visao geral da sua frota</p>
         </div>
-        <Button onClick={() => navigate('/trips/new')}>
-          Nova Viagem
-        </Button>
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <Input
+            label="Mes"
+            type="month"
+            value={selectedMonth}
+            onChange={(event) => setSelectedMonth(event.target.value || getCurrentMonth())}
+            className="sm:w-44"
+          />
+          <Button onClick={() => navigate('/trips/new')}>
+            Nova Viagem
+          </Button>
+        </div>
       </div>
+
+      {summaryError && (
+        <div className="rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+          Nao foi possivel carregar os indicadores: {summaryError}
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

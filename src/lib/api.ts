@@ -180,8 +180,8 @@ export async function resolveAlert(id: string, resolvedBy: string): Promise<void
 }
 
 // Dashboard API
-export async function getDashboardSummary(): Promise<DashboardSummary> {
-  return apiRequest<DashboardSummary>('/dashboard');
+export async function getDashboardSummary(month?: string): Promise<DashboardSummary> {
+  return apiRequest<DashboardSummary>(`/dashboard${queryString({ month })}`);
 }
 
 // Trip Summary helper
