@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   User,
+  UserCog,
 } from 'lucide-react';
 
 interface NavItem {
@@ -25,6 +26,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
+  { label: 'Usuarios', icon: UserCog, path: '/users', adminOnly: true },
   { label: 'Caminhões', icon: Truck, path: '/trucks', adminOnly: true },
   { label: 'Motoristas', icon: Users, path: '/drivers', adminOnly: true },
   { label: 'Viagens', icon: MapPin, path: '/trips' },

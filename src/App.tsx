@@ -11,6 +11,7 @@ import TripDetailPage from './pages/trip-detail';
 import FuelPage from './pages/fuel';
 import MaintenancePage from './pages/maintenance';
 import AlertsPage from './pages/alerts';
+import UsersPage from './pages/users';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,6 +100,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MaintenancePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          <ProtectedRoute>
+            <UsersPage />
           </ProtectedRoute>
         }
       />

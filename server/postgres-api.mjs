@@ -232,48 +232,28 @@ async function handleAuth(method, action, req, searchParams) {
     return ok({ user: toAuthUser(session.user), profile: session.profile });
   }
 
-  if (method === 'POST' && action === 'signup') {
-    const body = await readJson(req);
-    const email = String(body.email || '').trim().toLowerCase();
-    const password = String(body.password || '');
-    const name = String(body.name || '').trim();
-    const role = body.role === 'admin' ? 'admin' : 'driver';
+  if (action === 'users') {
+    await requireAdmin(req);
 
-    if (!email || !password || !name) {
-      return badRequest('Preencha nome, email e senha.');
+    if (method === 'GET') {
+      return ok(await listManagedUsers());
     }
 
-    const existing = await queryOne('SELECT id FROM local_users WHERE email = $1', [email]);
-    if (existing) return badRequest('Email ja cadastrado.');
+    if (method === 'POST') {
+      return ok(await createManagedUser(await readJson(req)));
+    }
 
-    const profileId = randomUUID();
-    const userId = randomUUID();
-    const password_salt = randomBytes(16).toString('hex');
-    const password_hash = hashPassword(password, password_salt);
-    const createdAt = now();
-    const token = randomBytes(32).toString('hex');
-    const tokenHash = hashToken(token);
-    const expiresAt = sessionExpiry();
+    return methodNotAllowed();
+  }
 
-    await withTransaction(async (client) => {
-      await client.query(`
-        INSERT INTO profiles (id, name, role, is_active, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6)
-      `, [profileId, name, role, true, createdAt, createdAt]);
+  if (method === 'POST' && action === 'signup') {
+    const userCount = await queryOne('SELECT COUNT(*)::int AS count FROM local_users');
+    if (Number(userCount?.count || 0) > 0) {
+      await requireAdmin(req);
+    }
 
-      await client.query(`
-        INSERT INTO local_users (id, email, password_hash, password_salt, profile_id, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6)
-      `, [userId, email, password_hash, password_salt, profileId, createdAt]);
-
-      await client.query(`
-        INSERT INTO sessions (id, token_hash, user_id, expires_at, revoked_at, created_at)
-        VALUES ($1, $2, $3, $4, NULL, $5)
-      `, [randomUUID(), tokenHash, userId, expiresAt, createdAt]);
-    });
-
-    const profile = await getById('profiles', profileId);
-    return { status: 200, body: { user: toAuthUser({ id: userId, email, profile_id: profileId }), profile }, headers: { 'Set-Cookie': buildSessionCookie(token) } };
+    const managedUser = await createManagedUser(await readJson(req), { forceAdmin: Number(userCount?.count || 0) === 0 });
+    return ok(managedUser);
   }
 
   if (method === 'POST' && action === 'signin') {
@@ -310,6 +290,87 @@ async function handleAuth(method, action, req, searchParams) {
   }
 
   return { status: 404, body: { error: 'Rota de autenticacao nao encontrada' } };
+}
+
+async function listManagedUsers() {
+  const { rows } = await query(`
+    SELECT
+      u.id,
+      u.email,
+      u.profile_id,
+      u.created_at,
+      p.name,
+      p.phone,
+      p.cpf,
+      p.role,
+      p.is_active
+    FROM local_users u
+    JOIN profiles p ON p.id = u.profile_id
+    ORDER BY u.created_at DESC
+  `);
+
+  return rows.map((row) => ({
+    ...row,
+    is_active: Boolean(row.is_active),
+    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+  }));
+}
+
+async function createManagedUser(input, options = {}) {
+  const email = String(input.email || '').trim().toLowerCase();
+  const password = String(input.password || '');
+  const name = String(input.name || '').trim();
+  const role = options.forceAdmin ? 'admin' : input.role === 'admin' ? 'admin' : 'driver';
+  const phone = String(input.phone || '').trim() || null;
+  const cpf = String(input.cpf || '').trim() || null;
+
+  if (!email || !password || !name) {
+    throwBadRequest('Preencha nome, email e senha.');
+  }
+
+  if (password.length < 6) {
+    throwBadRequest('A senha deve ter pelo menos 6 caracteres.');
+  }
+
+  const existing = await queryOne('SELECT id FROM local_users WHERE email = $1', [email]);
+  if (existing) throwBadRequest('Email ja cadastrado.');
+
+  const profileId = randomUUID();
+  const userId = randomUUID();
+  const passwordSalt = randomBytes(16).toString('hex');
+  const passwordHash = hashPassword(password, passwordSalt);
+  const createdAt = now();
+
+  await withTransaction(async (client) => {
+    await client.query(`
+      INSERT INTO profiles (id, name, phone, cpf, role, is_active, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, [profileId, name, phone, cpf, role, true, createdAt, createdAt]);
+
+    await client.query(`
+      INSERT INTO local_users (id, email, password_hash, password_salt, profile_id, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [userId, email, passwordHash, passwordSalt, profileId, createdAt]);
+
+    if (role === 'driver') {
+      await client.query(`
+        INSERT INTO drivers (id, user_id, name, phone, cpf, is_active, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [randomUUID(), profileId, name, phone, cpf, true, createdAt, createdAt]);
+    }
+  });
+
+  return {
+    id: userId,
+    email,
+    profile_id: profileId,
+    name,
+    phone,
+    cpf,
+    role,
+    is_active: true,
+    created_at: createdAt,
+  };
 }
 
 async function handleCrud(table, method, id, req, filters = {}) {
@@ -953,6 +1014,17 @@ async function requireAuth(req) {
   return session;
 }
 
+async function requireAdmin(req) {
+  const session = await requireAuth(req);
+  if (session.profile?.role !== 'admin') {
+    const error = new Error('Apenas administradores podem executar esta acao');
+    error.status = 403;
+    throw error;
+  }
+
+  return session;
+}
+
 function toAuthUser(user) {
   return {
     id: user.id,
@@ -967,6 +1039,12 @@ function ok(body) {
 
 function badRequest(message) {
   return { status: 400, body: { error: message } };
+}
+
+function throwBadRequest(message) {
+  const error = new Error(message);
+  error.status = 400;
+  throw error;
 }
 
 function methodNotAllowed() {

@@ -16,7 +16,6 @@ interface AuthContextType {
   profile: Profile | null;
   session: LocalSession | null;
   loading: boolean;
-  signUp: (email: string, password: string, name: string, role: 'admin' | 'driver') => Promise<{ error?: string }>;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }
@@ -45,24 +44,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     getInitialSession();
   }, []);
-
-  const signUp = async (email: string, password: string, name: string, role: 'admin' | 'driver') => {
-    try {
-      const result = await apiAuth<{ user: LocalUser; profile: Profile }>('/signup', {
-        method: 'POST',
-        body: JSON.stringify({ email, password, name, role }),
-      });
-
-      setUser(result.user);
-      setProfile(result.profile);
-      setSession({ user: result.user });
-
-      return {};
-    } catch (err) {
-      console.error('SignUp error:', err);
-      return { error: err instanceof Error ? err.message : 'Erro inesperado ao criar conta' };
-    }
-  };
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -93,7 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     session,
     loading,
-    signUp,
     signIn,
     signOut,
   };

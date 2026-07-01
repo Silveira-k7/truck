@@ -84,7 +84,7 @@ export function localSqliteApiPlugin() {
           sendJson(res, result.status, result.body);
         } catch (error) {
           console.error('[local-sqlite-api]', error);
-          sendJson(res, 500, { error: error instanceof Error ? error.message : 'Erro interno' });
+          sendJson(res, error?.status || 500, { error: error instanceof Error ? error.message : 'Erro interno' });
         }
       });
     },
@@ -201,31 +201,19 @@ async function handleAuth(method, action, req, searchParams) {
     return ok({ user: toAuthUser(user), profile });
   }
 
-  if (method === 'POST' && action === 'signup') {
-    const body = await readJson(req);
-    const email = String(body.email || '').trim().toLowerCase();
-    const password = String(body.password || '');
-    const name = String(body.name || '').trim();
-    const role = body.role === 'admin' ? 'admin' : 'driver';
+  if (action === 'users') {
+    if (method === 'GET') return ok(listManagedUsers());
+    if (method === 'POST') return ok(createManagedUser(await readJson(req)));
+    return methodNotAllowed();
+  }
 
-    if (!email || !password || !name) {
-      return badRequest('Preencha nome, email e senha.');
+  if (method === 'POST' && action === 'signup') {
+    const userCount = db.prepare('SELECT COUNT(*) AS count FROM local_users').get();
+    if (Number(userCount?.count || 0) > 0) {
+      return { status: 403, body: { error: 'Cadastro publico desativado.' } };
     }
 
-    const existing = db.prepare('SELECT id FROM local_users WHERE email = ?').get(email);
-    if (existing) return badRequest('Email ja cadastrado.');
-
-    const profile = insertRow('profiles', { name, role, is_active: true });
-    const userId = randomUUID();
-    const password_salt = randomBytes(16).toString('hex');
-    const password_hash = hashPassword(password, password_salt);
-
-    db.prepare(`
-      INSERT INTO local_users (id, email, password_hash, password_salt, profile_id, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(userId, email, password_hash, password_salt, profile.id, now());
-
-    return ok({ user: toAuthUser({ id: userId, email, profile_id: profile.id }), profile });
+    return ok(createManagedUser(await readJson(req), { forceAdmin: true }));
   }
 
   if (method === 'POST' && action === 'signin') {
@@ -243,6 +231,70 @@ async function handleAuth(method, action, req, searchParams) {
   }
 
   return { status: 404, body: { error: 'Rota de autenticacao nao encontrada' } };
+}
+
+function listManagedUsers() {
+  return db.prepare(`
+    SELECT
+      u.id,
+      u.email,
+      u.profile_id,
+      u.created_at,
+      p.name,
+      p.phone,
+      p.cpf,
+      p.role,
+      p.is_active
+    FROM local_users u
+    JOIN profiles p ON p.id = u.profile_id
+    ORDER BY u.created_at DESC
+  `).all().map((row) => normalizeRow(row, 'profiles'));
+}
+
+function createManagedUser(input, options = {}) {
+  const email = String(input.email || '').trim().toLowerCase();
+  const password = String(input.password || '');
+  const name = String(input.name || '').trim();
+  const role = options.forceAdmin ? 'admin' : input.role === 'admin' ? 'admin' : 'driver';
+  const phone = String(input.phone || '').trim() || null;
+  const cpf = String(input.cpf || '').trim() || null;
+
+  if (!email || !password || !name) {
+    throwBadRequest('Preencha nome, email e senha.');
+  }
+
+  if (password.length < 6) {
+    throwBadRequest('A senha deve ter pelo menos 6 caracteres.');
+  }
+
+  const existing = db.prepare('SELECT id FROM local_users WHERE email = ?').get(email);
+  if (existing) throwBadRequest('Email ja cadastrado.');
+
+  const profile = insertRow('profiles', { name, phone, cpf, role, is_active: true });
+  const userId = randomUUID();
+  const password_salt = randomBytes(16).toString('hex');
+  const password_hash = hashPassword(password, password_salt);
+
+  db.prepare(`
+    INSERT INTO local_users (id, email, password_hash, password_salt, profile_id, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(userId, email, password_hash, password_salt, profile.id, now());
+
+  if (role === 'driver') {
+    insertRow('drivers', { user_id: profile.id, name, phone, cpf, is_active: true });
+  }
+
+  return {
+    id: userId,
+    email,
+    profile_id: profile.id,
+    name,
+    phone,
+    cpf,
+    role,
+    is_active: true,
+    created_at: profile.created_at,
+  };
 }
 
 async function handleCrud(table, method, id, req, filters = {}) {
@@ -504,6 +556,12 @@ function ok(body) {
 
 function badRequest(message) {
   return { status: 400, body: { error: message } };
+}
+
+function throwBadRequest(message) {
+  const error = new Error(message);
+  error.status = 400;
+  throw error;
 }
 
 function methodNotAllowed() {

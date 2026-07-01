@@ -14,6 +14,18 @@ type DashboardSummary = {
   pendingApprovals: number;
 };
 
+export type ManagedUser = {
+  id: string;
+  email: string;
+  profile_id: string;
+  name: string;
+  phone?: string;
+  cpf?: string;
+  role: 'admin' | 'driver';
+  is_active: boolean;
+  created_at: string;
+};
+
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, {
     ...init,
@@ -177,6 +189,22 @@ export async function markAlertRead(id: string): Promise<void> {
 
 export async function resolveAlert(id: string, resolvedBy: string): Promise<void> {
   await apiRequest(`/alerts/${id}`, patchBody({ is_resolved: true, resolved_by: resolvedBy, resolved_at: new Date().toISOString() }));
+}
+
+// Users API
+export async function getUsers(): Promise<ManagedUser[]> {
+  return apiRequest<ManagedUser[]>('/auth/users');
+}
+
+export async function createUser(user: {
+  name: string;
+  email: string;
+  password: string;
+  role: 'admin' | 'driver';
+  phone?: string;
+  cpf?: string;
+}): Promise<ManagedUser> {
+  return apiRequest<ManagedUser>('/auth/users', jsonBody(user));
 }
 
 // Dashboard API
